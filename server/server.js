@@ -560,7 +560,7 @@ async function start() {
   await connectDatabase();
   await fs.mkdir(uploadsDir, { recursive: true });
   app.listen(port, () => {
-    console.log(`Portfolio API listening on http://localhost:${port}`);
+    console.log(`تم تشغيل الموقع بنجاح على http://localhost:${port}`);
   });
 }
 
