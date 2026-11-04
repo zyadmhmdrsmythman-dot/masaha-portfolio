@@ -79,6 +79,13 @@ app.use(
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 app.use("/uploads", express.static(uploadsDir, { maxAge: "1d" }));
+app.get("/", (_req, res) => {
+  res.json({
+    service: "portfolio-api",
+    frontend: process.env.CLIENT_URL || "http://localhost:5173",
+    health: "/api/health",
+  });
+});
 app.use("/api", async (_req, res, next) => {
   try {
     await connectDatabase();
