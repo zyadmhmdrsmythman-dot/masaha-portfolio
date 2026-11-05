@@ -560,7 +560,7 @@ async function start() {
   await connectDatabase();
   await fs.mkdir(uploadsDir, { recursive: true });
   app.listen(port, () => {
-    console.log(`تم تشغيل الموقع بنجاح على http://localhost:${port}`);
+    console.log(`the server is running at http://localhost:${port}`);
   });
 }
 
