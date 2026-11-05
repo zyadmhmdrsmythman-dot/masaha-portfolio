@@ -343,6 +343,7 @@ app.post("/api/admin/logout", (_req, res) => {
 });
 
 app.get("/api/admin/session", (req, res, next) => {
+  res.set("Cache-Control", "no-store");
   const token = req.cookies?.portfolio_admin;
   if (!token || !process.env.JWT_SECRET) {
     return res.json({ authenticated: false });

@@ -23,7 +23,7 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
-  session: () => request("/admin/session"),
+  session: () => request("/admin/session", { cache: "no-store" }),
   login: (body) =>
     request("/admin/login", {
       method: "POST",
