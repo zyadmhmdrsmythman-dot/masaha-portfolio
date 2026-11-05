@@ -73,28 +73,25 @@ async function connectDatabase() {
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, or same-origin)
       if (!origin) return callback(null, true);
-      
+
       const allowedOrigins = [
         process.env.CLIENT_URL,
-        "http://localhost:5173",
-        "http://localhost:3000",
+        ...(process.env.NODE_ENV === "production"
+          ? []
+          : ["http://localhost:5173", "http://localhost:3000"]),
       ].filter(Boolean);
 
-      // Allow any vercel preview / production deployment or explicitly listed origins
-      if (
-        allowedOrigins.includes(origin) ||
-        origin.endsWith(".vercel.app")
-      ) {
+      if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      callback(null, true); // Fallback: allow to prevent CORS block on frontend
+      return callback(new Error("Origin is not allowed by CORS."));
     },
     credentials: true,
   }),
 );
+
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 app.use("/uploads", express.static(uploadsDir, { maxAge: "1d" }));
