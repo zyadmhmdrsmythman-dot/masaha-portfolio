@@ -10,7 +10,11 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    api.session().then(() => navigate("/admin", { replace: true })).catch(() => {});
+    api.session()
+      .then((session) => {
+        if (session.authenticated) navigate("/admin", { replace: true });
+      })
+      .catch(() => {});
   }, [navigate]);
 
   async function submit(event) {
@@ -66,4 +70,3 @@ export default function AdminLogin() {
     </main>
   );
 }
-

@@ -342,8 +342,21 @@ app.post("/api/admin/logout", (_req, res) => {
   res.json({ message: "تم تسجيل الخروج." });
 });
 
-app.get("/api/admin/session", requireAdmin, (_req, res) => {
-  res.json({ authenticated: true });
+app.get("/api/admin/session", (req, res, next) => {
+  const token = req.cookies?.portfolio_admin;
+  if (!token || !process.env.JWT_SECRET) {
+    return res.json({ authenticated: false });
+  }
+
+  try {
+    const session = jwt.verify(token, process.env.JWT_SECRET);
+    res.json({ authenticated: session.role === "admin" });
+  } catch (error) {
+    if (error instanceof jwt.JsonWebTokenError) {
+      return res.json({ authenticated: false });
+    }
+    next(error);
+  }
 });
 
 app.get("/api/admin/projects", requireAdmin, async (_req, res, next) => {

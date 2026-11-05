@@ -12,8 +12,8 @@ function AdminRoute() {
   useEffect(() => {
     let active = true;
     api.session()
-      .then(() => {
-        if (active) setAuthenticated(true);
+      .then((session) => {
+        if (active) setAuthenticated(session.authenticated === true);
       })
       .catch(() => {
         if (active) setAuthenticated(false);
