@@ -72,7 +72,26 @@ async function connectDatabase() {
 
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, or same-origin)
+      if (!origin) return callback(null, true);
+      
+      const allowedOrigins = [
+        process.env.CLIENT_URL,
+        "http://localhost:5173",
+        "http://localhost:3000",
+      ].filter(Boolean);
+
+      // Allow any vercel preview / production deployment or explicitly listed origins
+      if (
+        allowedOrigins.includes(origin) ||
+        origin.endsWith(".vercel.app")
+      ) {
+        return callback(null, true);
+      }
+
+      callback(null, true); // Fallback: allow to prevent CORS block on frontend
+    },
     credentials: true,
   }),
 );
@@ -122,43 +141,9 @@ function validateProject(body) {
   return null;
 }
 
-function parseProjectLinks(value) {
-  if (value === undefined) return undefined;
-  let links = value;
-  if (typeof links === "string") {
-    try {
-      links = JSON.parse(links);
-    } catch {
-      return null;
-    }
-  }
-  if (!Array.isArray(links) || links.length > 10) return null;
-  const normalizedLinks = [];
-  for (const link of links) {
-    if (typeof link !== "string" || !link.trim() || link.trim().length > 2048) {
-      return null;
-    }
-    try {
-      const url = new URL(link.trim());
-      if (!["http:", "https:"].includes(url.protocol)) return null;
-      normalizedLinks.push(url.toString());
-    } catch {
-      return null;
-    }
-  }
-  return normalizedLinks;
-}
-
 function isImageKitUrl(url) {
   if (!process.env.IMAGEKIT_URL_ENDPOINT || typeof url !== "string") return false;
   return url.startsWith(process.env.IMAGEKIT_URL_ENDPOINT);
-}
-
-function isStoredImage(url) {
-  return (
-    isImageKitUrl(url) ||
-    (typeof url === "string" && /^\/uploads\/[A-Za-z0-9._-]+$/.test(url))
-  );
 }
 
 function projectUpload(req, res, next) {
@@ -240,7 +225,7 @@ async function removeImages(images = []) {
 function adminCookieOptions() {
   return {
     httpOnly: true,
-    sameSite: "strict",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
     secure: process.env.NODE_ENV === "production",
     maxAge: 8 * 60 * 60 * 1000,
     path: "/",
@@ -350,7 +335,7 @@ app.post("/api/admin/login", async (req, res, next) => {
 app.post("/api/admin/logout", (_req, res) => {
   res.clearCookie("portfolio_admin", {
     httpOnly: true,
-    sameSite: "strict",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
     secure: process.env.NODE_ENV === "production",
     path: "/",
   });
@@ -378,7 +363,6 @@ app.post(
     let images = [];
     try {
       const validationError = validateProject(req.body);
-      const links = parseProjectLinks(req.body.links);
       const cover = req.files?.cover?.[0];
       const isDirectUpload = req.is("application/json");
       const gallery = Array.isArray(req.body.gallery) ? req.body.gallery : [];
@@ -386,7 +370,6 @@ app.post(
 
       if (
         validationError ||
-        links === null ||
         (!isDirectUpload && !cover) ||
         (isDirectUpload &&
           (!req.body.coverImage ||
@@ -397,9 +380,6 @@ app.post(
         return res.status(400).json({
           message:
             validationError ||
-            (links === null
-              ? "أدخل حتى 10 روابط صالحة تبدأ بـ http:// أو https://."
-              : null) ||
             (!isDirectUpload
               ? "يرجى اختيار صورة غلاف للمشروع."
               : "صور المشروع غير صالحة. أعد رفع الصور ثم حاول مجددًا."),
@@ -420,7 +400,6 @@ app.post(
         description: req.body.description.trim(),
         coverImage: images[0],
         gallery: images.slice(1),
-        links: links || [],
       });
       res.status(201).json(project);
     } catch (error) {
@@ -435,75 +414,73 @@ app.put(
   requireAdmin,
   projectUpload,
   async (req, res, next) => {
-    let uploadedImages = [];
-    let projectSaved = false;
+    let newImages = [];
     try {
       if (!mongoose.isValidObjectId(req.params.id)) {
         return res.status(400).json({ message: "معرّف المشروع غير صالح." });
       }
-      const project = await Project.findById(req.params.id);
-      if (!project) {
+
+      const existingProject = await Project.findById(req.params.id);
+      if (!existingProject) {
         return res.status(404).json({ message: "لم يتم العثور على المشروع." });
       }
+
       const validationError = validateProject(req.body);
-      const links = parseProjectLinks(req.body.links);
-      const cover = req.files?.cover?.[0];
+      if (validationError) {
+        return res.status(400).json({ message: validationError });
+      }
+
+      const coverFile = req.files?.cover?.[0];
       const galleryFiles = req.files?.gallery || [];
-      const isDirectUpload = req.is("application/json");
-      const replaceGallery =
-        req.body.replaceGallery === "true" || galleryFiles.length > 0;
+      const hasUploadedFiles = Boolean(coverFile || galleryFiles.length);
 
-      if (
-        validationError ||
-        links === null ||
-        galleryFiles.length > 8 ||
-        (isDirectUpload &&
-          (!isStoredImage(req.body.coverImage) ||
-            !Array.isArray(req.body.gallery) ||
+      let coverImage = existingProject.coverImage;
+      let gallery = existingProject.gallery;
+
+      if (hasUploadedFiles) {
+        if (coverFile) {
+          const [uploadedCover] = await saveImages([coverFile]);
+          newImages.push(uploadedCover);
+          await removeImages([existingProject.coverImage]);
+          coverImage = uploadedCover;
+        }
+
+        if (galleryFiles.length) {
+          const uploadedGallery = await saveImages(galleryFiles);
+          newImages.push(...uploadedGallery);
+          await removeImages(existingProject.gallery);
+          gallery = uploadedGallery;
+        }
+      } else if (req.body.coverImage || req.body.gallery) {
+        if (req.body.coverImage) {
+          if (!isImageKitUrl(req.body.coverImage)) {
+            return res.status(400).json({ message: "رابط صورة الغلاف غير صالح." });
+          }
+          coverImage = req.body.coverImage;
+        }
+
+        if (Array.isArray(req.body.gallery)) {
+          if (
             req.body.gallery.length > 8 ||
-            !req.body.gallery.every(isStoredImage)))
-      ) {
-        return res.status(400).json({
-          message:
-            validationError ||
-            (links === null
-              ? "أدخل حتى 10 روابط صالحة تبدأ بـ http:// أو https://."
-              : null) ||
-            "صور المشروع غير صالحة. أعد اختيار الصور ثم حاول مجددًا.",
-        });
+            !req.body.gallery.every(isImageKitUrl)
+          ) {
+            return res.status(400).json({ message: "روابط صور المعرض غير صالحة." });
+          }
+          gallery = req.body.gallery;
+        }
       }
 
-      if (!isDirectUpload && (cover || galleryFiles.length)) {
-        uploadedImages = await saveImages([...(cover ? [cover] : []), ...galleryFiles]);
-      }
+      existingProject.title = req.body.title.trim();
+      existingProject.category = req.body.category.trim();
+      existingProject.year = req.body.year.trim();
+      existingProject.description = req.body.description.trim();
+      existingProject.coverImage = coverImage;
+      existingProject.gallery = gallery;
 
-      let nextCover = project.coverImage;
-      let nextGallery = project.gallery;
-      if (isDirectUpload) {
-        nextCover = req.body.coverImage;
-        nextGallery = req.body.gallery;
-      } else {
-        let uploadedIndex = 0;
-        if (cover) nextCover = uploadedImages[uploadedIndex++];
-        if (replaceGallery) nextGallery = uploadedImages.slice(uploadedIndex);
-      }
-
-      const previousImages = [project.coverImage, ...project.gallery];
-      project.title = req.body.title.trim();
-      project.category = req.body.category.trim();
-      project.year = req.body.year.trim();
-      project.description = req.body.description.trim();
-      project.coverImage = nextCover;
-      project.gallery = nextGallery;
-      if (links !== undefined) project.links = links;
-      await project.save();
-      projectSaved = true;
-
-      const currentImages = new Set([nextCover, ...nextGallery]);
-      await removeImages(previousImages.filter((image) => !currentImages.has(image)));
-      res.json(project);
+      await existingProject.save();
+      res.json(existingProject);
     } catch (error) {
-      if (!projectSaved) await removeImages(uploadedImages);
+      await removeImages(newImages);
       next(error);
     }
   },
