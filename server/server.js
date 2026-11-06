@@ -138,6 +138,44 @@ function validateProject(body) {
   return null;
 }
 
+function parseProjectLinks(value) {
+  const invalidMessage =
+    "أدخل حتى 10 روابط صالحة تبدأ بـ http:// أو https://، رابطًا في كل سطر.";
+  if (value === undefined || value === null || value === "") {
+    return { links: [], error: null };
+  }
+
+  let links = value;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) links = parsed;
+      else links = value.split(/\r?\n/);
+    } catch {
+      links = value.split(/\r?\n/);
+    }
+  }
+  if (!Array.isArray(links) || links.some((link) => typeof link !== "string")) {
+    return { links: [], error: invalidMessage };
+  }
+
+  const normalizedLinks = links.map((link) => link.trim()).filter(Boolean);
+  if (
+    normalizedLinks.length > 10 ||
+    normalizedLinks.some((link) => {
+      try {
+        const url = new URL(link);
+        return !["http:", "https:"].includes(url.protocol) || !url.hostname;
+      } catch {
+        return true;
+      }
+    })
+  ) {
+    return { links: [], error: invalidMessage };
+  }
+  return { links: normalizedLinks, error: null };
+}
+
 function isImageKitUrl(url) {
   if (!process.env.IMAGEKIT_URL_ENDPOINT || typeof url !== "string") return false;
   return url.startsWith(process.env.IMAGEKIT_URL_ENDPOINT);
@@ -374,6 +412,10 @@ app.post(
     let images = [];
     try {
       const validationError = validateProject(req.body);
+      const { links, error: linksError } = parseProjectLinks(req.body.links);
+      if (linksError) {
+        return res.status(400).json({ message: linksError });
+      }
       const cover = req.files?.cover?.[0];
       const isDirectUpload = req.is("application/json");
       const gallery = Array.isArray(req.body.gallery) ? req.body.gallery : [];
@@ -411,6 +453,7 @@ app.post(
         description: req.body.description.trim(),
         coverImage: images[0],
         gallery: images.slice(1),
+        links,
       });
       res.status(201).json(project);
     } catch (error) {
@@ -439,6 +482,14 @@ app.put(
       const validationError = validateProject(req.body);
       if (validationError) {
         return res.status(400).json({ message: validationError });
+      }
+      let links = existingProject.links;
+      if (req.body.links !== undefined) {
+        const parsedLinks = parseProjectLinks(req.body.links);
+        if (parsedLinks.error) {
+          return res.status(400).json({ message: parsedLinks.error });
+        }
+        links = parsedLinks.links;
       }
 
       const coverFile = req.files?.cover?.[0];
@@ -487,6 +538,7 @@ app.put(
       existingProject.description = req.body.description.trim();
       existingProject.coverImage = coverImage;
       existingProject.gallery = gallery;
+      existingProject.links = links;
 
       await existingProject.save();
       res.json(existingProject);
