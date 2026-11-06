@@ -1,5 +1,8 @@
 .env
 **/.env
+.env*
+**/.env*
+.vercel
 server/uploads
 **/node_modules
 client/dist

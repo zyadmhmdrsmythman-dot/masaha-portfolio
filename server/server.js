@@ -17,6 +17,7 @@ import { requireAdmin } from "./middleware/adminAuth.js";
 
 const app = express();
 const port = Number(process.env.PORT) || 5000;
+app.set("trust proxy", process.env.VERCEL ? 1 : false);
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(currentDir, "uploads");
 const imageTypes = new Map([
@@ -70,27 +71,26 @@ async function connectDatabase() {
   await databaseConnection;
 }
 
-app.use(
+app.use((req, res, next) => {
+  const requestOrigin = `${req.protocol}://${req.get("host")}`;
+  const allowedOrigins = [
+    process.env.CLIENT_URL,
+    ...(process.env.NODE_ENV === "production"
+      ? []
+      : ["http://localhost:5173", "http://localhost:3000"]),
+  ].filter(Boolean);
+
   cors({
     origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-
-      const allowedOrigins = [
-        process.env.CLIENT_URL,
-        ...(process.env.NODE_ENV === "production"
-          ? []
-          : ["http://localhost:5173", "http://localhost:3000"]),
-      ].filter(Boolean);
-
-      if (allowedOrigins.includes(origin)) {
+      if (!origin || origin === requestOrigin || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      return callback(new Error("Origin is not allowed by CORS."));
+      return callback(null, false);
     },
     credentials: true,
-  }),
-);
+  })(req, res, next);
+});
 
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());

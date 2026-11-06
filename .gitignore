@@ -6,3 +6,5 @@ server/uploads/
 server/.env
 client/.env
 npm-debug.log*
+.vercel
+.env*
