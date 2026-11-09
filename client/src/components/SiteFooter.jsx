@@ -27,7 +27,7 @@ export default function SiteFooter() {
       </div>
       <div className="container footer-bottom">
         <span>© {new Date().getFullYear()} مساحة. جميع الحقوق محفوظة.</span>
-        <span>© created BY ziead mohamed rasmy </span>
+        <span>CREATED BY ZIEAD MOHAMED RASMY </span>
         <span>صُنع بشغف واهتمام بالتفاصيل.</span>
       </div>
     </footer>
