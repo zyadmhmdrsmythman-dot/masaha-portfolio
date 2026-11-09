@@ -50,6 +50,7 @@ export default function AdminPage() {
   const [projects, setProjects] = useState([]);
   const [messages, setMessages] = useState([]);
   const [profileCode, setProfileCode] = useState("");
+  const [profileLinkCopied, setProfileLinkCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
   const [form, setForm] = useState(initialForm);
@@ -243,6 +244,17 @@ export default function AdminPage() {
     }
   }
 
+  async function copyProfileLink() {
+    const profileUrl = `${window.location.origin}/p/${profileCode}`;
+    try {
+      await navigator.clipboard.writeText(profileUrl);
+      setProfileLinkCopied(true);
+      window.setTimeout(() => setProfileLinkCopied(false), 2000);
+    } catch (error) {
+      setNotice({ text: "تعذر نسخ الرابط. انسخه يدويًا من الحقل.", error: true });
+    }
+  }
+
   if (loading) {
     return <main className="admin-loading"><span className="loading-state">جارٍ فتح لوحة الإدارة...</span></main>;
   }
@@ -285,9 +297,17 @@ export default function AdminPage() {
             <h1>أهلًا بك في لوحة التحكم.</h1>
             <p>أضف أعمالك، وشارك قصتها مع العالم.</p>
             {profileCode && (
-              <p className="profile-share">
-                رابط صفحتك العامة: <a href={`/p/${profileCode}`} target="_blank" rel="noreferrer">{`${window.location.origin}/p/${profileCode}`}</a>
-              </p>
+              <section className="profile-share" aria-label="رابط البورتفوليو">
+                <strong>رابط البورتفوليو الخاص بك</strong>
+                <div className="profile-share-controls">
+                  <a href={`/p/${profileCode}`} target="_blank" rel="noreferrer" dir="ltr">
+                    {`${window.location.origin}/p/${profileCode}`}
+                  </a>
+                  <button type="button" className="button button-outline profile-copy-button" onClick={copyProfileLink}>
+                    {profileLinkCopied ? "تم النسخ" : "نسخ الرابط"}
+                  </button>
+                </div>
+              </section>
             )}
           </div>
           <div className="dashboard-stats">

@@ -1199,13 +1199,38 @@ img {
   font-size: 12px;
 }
 .dashboard-intro .profile-share {
-  margin-top: 10px;
-  overflow-wrap: anywhere;
+  width: min(100%, 560px);
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--white);
 }
-.profile-share a {
+.profile-share > strong {
+  display: block;
+  margin-bottom: 9px;
+  color: #5e6057;
+  font-size: 11px;
+}
+.profile-share-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.profile-share-controls a {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
   color: var(--olive-dark);
-  direction: ltr;
-  unicode-bidi: plaintext;
+  font-family: "DM Sans", sans-serif;
+  font-size: 12px;
+  text-align: left;
+}
+.profile-copy-button {
+  min-height: 36px;
+  flex: 0 0 auto;
+  padding-inline: 12px;
+  font-size: 11px;
 }
 .dashboard-stats {
   display: flex;
@@ -1869,6 +1894,13 @@ img {
   }
   .dashboard-intro h1 {
     font-size: 24px;
+  }
+  .profile-share-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .profile-copy-button {
+    align-self: flex-start;
   }
   .dashboard-stats {
     width: 100%;
