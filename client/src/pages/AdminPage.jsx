@@ -49,6 +49,7 @@ export default function AdminPage() {
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [messages, setMessages] = useState([]);
+  const [profileCode, setProfileCode] = useState("");
   const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
   const [form, setForm] = useState(initialForm);
@@ -64,9 +65,14 @@ export default function AdminPage() {
   async function loadDashboard() {
     setLoading(true);
     try {
-      const [projectList, inbox] = await Promise.all([api.adminProjects(), api.messages()]);
+      const [projectList, inbox, session] = await Promise.all([
+        api.adminProjects(),
+        api.messages(),
+        api.session(),
+      ]);
       setProjects(projectList);
       setMessages(inbox);
+      setProfileCode(session.publicCode || "");
       setAuthenticated(true);
     } catch (error) {
       if (error.message.includes("تسجيل الدخول") || error.message.includes("انتهت الجلسة")) {
@@ -260,7 +266,14 @@ export default function AdminPage() {
           <Link to="/" className="brand"><span className="brand-mark">م.</span><span>مساحة</span></Link>
           <span className="dashboard-label"><LayoutDashboard size={17} /> لوحة الإدارة</span>
           <div className="dashboard-header-actions">
-            <Link to="/" className="dashboard-site-link">عرض الموقع <ExternalLink size={15} /></Link>
+            <a
+              href={profileCode ? `/p/${profileCode}` : "/"}
+              className="dashboard-site-link"
+              target="_blank"
+              rel="noreferrer"
+            >
+              عرض الموقع <ExternalLink size={15} />
+            </a>
             <button type="button" className="logout-button" onClick={logout}>تسجيل الخروج</button>
           </div>
         </div>
@@ -271,6 +284,11 @@ export default function AdminPage() {
             <span className="section-kicker">مساحتك الإبداعية <span>✳</span></span>
             <h1>أهلًا بك في لوحة التحكم.</h1>
             <p>أضف أعمالك، وشارك قصتها مع العالم.</p>
+            {profileCode && (
+              <p className="profile-share">
+                رابط صفحتك العامة: <a href={`/p/${profileCode}`} target="_blank" rel="noreferrer">{`${window.location.origin}/p/${profileCode}`}</a>
+              </p>
+            )}
           </div>
           <div className="dashboard-stats">
             <div><strong>{projects.length.toString().padStart(2, "0")}</strong><span>مشروع منشور</span></div>
@@ -356,7 +374,7 @@ export default function AdminPage() {
                   {messages.map((message) => (
                     <article className="inbox-message" key={message._id}>
                       <div className="inbox-message-head"><strong>{message.name}</strong><time>{new Date(message.createdAt).toLocaleDateString("ar")}</time></div>
-                      <a href={`mailto:${message.email}`}>{message.email}</a>
+                      <span className="inbox-message-email" dir="ltr">{message.email}</span>
                       <p>{message.message}</p>
                     </article>
                   ))}

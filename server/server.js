@@ -13,6 +13,7 @@ import mongoose from "mongoose";
 import multer from "multer";
 import Message from "./models/Message.js";
 import Project from "./models/Project.js";
+import User from "./models/User.js";
 import { requireAdmin } from "./middleware/adminAuth.js";
 
 const app = express();
@@ -267,6 +268,14 @@ function adminCookieOptions() {
   };
 }
 
+function ownerFilter(req) {
+  return { ownerId: req.auth.role === "owner" ? req.auth.userId : null };
+}
+
+function isValidEmail(email) {
+  return typeof email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 app.get("/api/health", (_req, res) => {
   res.json({
     status: "ok",
@@ -275,9 +284,70 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
+app.post("/api/auth/register", async (req, res, next) => {
+  try {
+    const { name, email, password } = req.body;
+    if (
+      typeof name !== "string" ||
+      !name.trim() ||
+      name.trim().length > 100 ||
+      !isValidEmail(email) ||
+      email.length > 254 ||
+      typeof password !== "string" ||
+      password.length < 8 ||
+      password.length > 128
+    ) {
+      return res.status(400).json({
+        message: "أدخل اسمًا وبريدًا صالحًا، وكلمة مرور من 8 أحرف على الأقل.",
+      });
+    }
+    if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+      return res.status(503).json({ message: "إعدادات تسجيل الدخول غير مكتملة." });
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+    if (
+      normalizedEmail === process.env.ADMIN_EMAIL?.trim().toLowerCase() ||
+      (await User.exists({ email: normalizedEmail }))
+    ) {
+      return res.status(409).json({ message: "هذا البريد مسجل بالفعل." });
+    }
+
+    await User.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      passwordHash: await bcrypt.hash(password, 12),
+      publicCode: crypto.randomBytes(6).toString("hex"),
+      emailVerified: true,
+    });
+    res.status(201).json({
+      message: "تم إنشاء الحساب بنجاح. يمكنك تسجيل الدخول الآن.",
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ message: "هذا البريد مسجل بالفعل." });
+    }
+    next(error);
+  }
+});
+
+app.get("/api/profiles/:code", async (req, res, next) => {
+  try {
+    const user = await User.findOne({ publicCode: req.params.code })
+      .select("name publicCode")
+      .lean();
+    if (!user) {
+      return res.status(404).json({ message: "لم يتم العثور على صفحة الأعمال." });
+    }
+    const projects = await Project.find({ ownerId: user._id }).sort({ createdAt: -1 }).lean();
+    res.json({ profile: user, projects });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/projects", async (_req, res, next) => {
   try {
-    const projects = await Project.find().sort({ createdAt: -1 }).lean();
+    const projects = await Project.find({ ownerId: null }).sort({ createdAt: -1 }).lean();
     res.json(projects);
   } catch (error) {
     next(error);
@@ -286,7 +356,28 @@ app.get("/api/projects", async (_req, res, next) => {
 
 app.get("/api/projects/:slug", async (req, res, next) => {
   try {
-    const project = await Project.findOne({ slug: req.params.slug }).lean();
+    const project = await Project.findOne({ slug: req.params.slug, ownerId: null }).lean();
+    if (!project) {
+      return res.status(404).json({ message: "لم يتم العثور على المشروع." });
+    }
+    res.json(project);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/profiles/:code/projects/:slug", async (req, res, next) => {
+  try {
+    const user = await User.findOne({ publicCode: req.params.code })
+      .select("_id")
+      .lean();
+    if (!user) {
+      return res.status(404).json({ message: "لم يتم العثور على صفحة الأعمال." });
+    }
+    const project = await Project.findOne({
+      slug: req.params.slug,
+      ownerId: user._id,
+    }).lean();
     if (!project) {
       return res.status(404).json({ message: "لم يتم العثور على المشروع." });
     }
@@ -338,6 +429,39 @@ app.post("/api/contact", async (req, res, next) => {
   }
 });
 
+app.post("/api/profiles/:code/contact", async (req, res, next) => {
+  try {
+    const { name, email, message } = req.body;
+    if (
+      typeof name !== "string" ||
+      !isValidEmail(email) ||
+      typeof message !== "string" ||
+      !name.trim() ||
+      !message.trim() ||
+      name.length > 100 ||
+      email.length > 254 ||
+      message.length > 3000
+    ) {
+      return res.status(400).json({ message: "تحقق من بيانات التواصل المدخلة." });
+    }
+    const user = await User.findOne({ publicCode: req.params.code })
+      .select("_id")
+      .lean();
+    if (!user) {
+      return res.status(404).json({ message: "لم يتم العثور على صفحة الأعمال." });
+    }
+    const newMessage = await Message.create({
+      ownerId: user._id,
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      message: message.trim(),
+    });
+    res.status(201).json({ message: "وصلتنا رسالتك، شكرًا لتواصلك!", id: newMessage._id });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.post("/api/admin/login", async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -345,21 +469,38 @@ app.post("/api/admin/login", async (req, res, next) => {
     if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
       return res.status(503).json({ message: "إعدادات تسجيل الدخول غير مكتملة." });
     }
-    if (!passwordHash || !process.env.ADMIN_EMAIL) {
-      return res.status(503).json({ message: "لم يتم إعداد حساب المدير بعد." });
-    }
-    const passwordMatches =
-      typeof password === "string" && (await bcrypt.compare(password, passwordHash));
-    if (
-      typeof email !== "string" ||
-      email.trim().toLowerCase() !== process.env.ADMIN_EMAIL.trim().toLowerCase() ||
-      !passwordMatches
-    ) {
+    if (!isValidEmail(email) || typeof password !== "string") {
       return res.status(401).json({ message: "البريد الإلكتروني أو كلمة المرور غير صحيحة." });
     }
-    const token = jwt.sign({ role: "admin" }, process.env.JWT_SECRET, {
-      expiresIn: "8h",
-    });
+    const normalizedEmail = email.trim().toLowerCase();
+    const isAdminEmail =
+      Boolean(passwordHash && process.env.ADMIN_EMAIL) &&
+      normalizedEmail === process.env.ADMIN_EMAIL.trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
+    const adminPasswordMatches =
+      isAdminEmail && (await bcrypt.compare(password, passwordHash));
+    const userPasswordMatches =
+      user && (await bcrypt.compare(password, user.passwordHash));
+
+    if (adminPasswordMatches) {
+      const token = jwt.sign({ role: "admin" }, process.env.JWT_SECRET, { expiresIn: "8h" });
+      res.cookie("portfolio_admin", token, adminCookieOptions());
+      return res.json({ message: "تم تسجيل الدخول بنجاح." });
+    }
+    if (!user || !userPasswordMatches) {
+      return res.status(401).json({ message: "البريد الإلكتروني أو كلمة المرور غير صحيحة." });
+    }
+
+    const token = jwt.sign(
+      {
+        role: "owner",
+        userId: user._id.toString(),
+        email: user.email,
+        publicCode: user.publicCode,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "8h" },
+    );
     res.cookie("portfolio_admin", token, adminCookieOptions());
     res.json({ message: "تم تسجيل الدخول بنجاح." });
   } catch (error) {
@@ -386,7 +527,13 @@ app.get("/api/admin/session", (req, res, next) => {
 
   try {
     const session = jwt.verify(token, process.env.JWT_SECRET);
-    res.json({ authenticated: session.role === "admin" });
+    const authenticated = ["admin", "owner"].includes(session.role);
+    res.json({
+      authenticated,
+      role: authenticated ? session.role : null,
+      email: authenticated ? session.email || null : null,
+      publicCode: authenticated ? session.publicCode || null : null,
+    });
   } catch (error) {
     if (error instanceof jwt.JsonWebTokenError) {
       return res.json({ authenticated: false });
@@ -395,9 +542,9 @@ app.get("/api/admin/session", (req, res, next) => {
   }
 });
 
-app.get("/api/admin/projects", requireAdmin, async (_req, res, next) => {
+app.get("/api/admin/projects", requireAdmin, async (req, res, next) => {
   try {
-    const projects = await Project.find().sort({ createdAt: -1 }).lean();
+    const projects = await Project.find(ownerFilter(req)).sort({ createdAt: -1 }).lean();
     res.json(projects);
   } catch (error) {
     next(error);
@@ -446,6 +593,7 @@ app.post(
       const baseSlug = slugify(req.body.title) || "project";
       const slug = `${baseSlug}-${crypto.randomBytes(3).toString("hex")}`;
       const project = await Project.create({
+        ...ownerFilter(req),
         title: req.body.title.trim(),
         slug,
         category: req.body.category.trim(),
@@ -474,7 +622,10 @@ app.put(
         return res.status(400).json({ message: "معرّف المشروع غير صالح." });
       }
 
-      const existingProject = await Project.findById(req.params.id);
+      const existingProject = await Project.findOne({
+        _id: req.params.id,
+        ...ownerFilter(req),
+      });
       if (!existingProject) {
         return res.status(404).json({ message: "لم يتم العثور على المشروع." });
       }
@@ -554,7 +705,10 @@ app.delete("/api/admin/projects/:id", requireAdmin, async (req, res, next) => {
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(400).json({ message: "معرّف المشروع غير صالح." });
     }
-    const project = await Project.findByIdAndDelete(req.params.id);
+    const project = await Project.findOneAndDelete({
+      _id: req.params.id,
+      ...ownerFilter(req),
+    });
     if (!project) {
       return res.status(404).json({ message: "لم يتم العثور على المشروع." });
     }
@@ -565,9 +719,9 @@ app.delete("/api/admin/projects/:id", requireAdmin, async (req, res, next) => {
   }
 });
 
-app.get("/api/admin/messages", requireAdmin, async (_req, res, next) => {
+app.get("/api/admin/messages", requireAdmin, async (req, res, next) => {
   try {
-    const messages = await Message.find()
+    const messages = await Message.find(ownerFilter(req))
       .sort({ createdAt: -1 })
       .limit(100)
       .select("name email message createdAt")
@@ -593,6 +747,9 @@ app.use((error, _req, res, _next) => {
     return res.status(503).json({ message: error.message });
   }
   console.error(error);
+  if (Number.isInteger(error.status) && error.status >= 400 && error.status < 600) {
+    return res.status(error.status).json({ message: error.message });
+  }
   res.status(500).json({ message: "حدث خطأ في الخادم. حاول لاحقًا." });
 });
 

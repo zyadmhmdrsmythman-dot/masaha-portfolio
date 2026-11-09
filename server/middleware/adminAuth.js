@@ -8,9 +8,13 @@ export function requireAdmin(req, res, next) {
 
   try {
     const session = jwt.verify(token, process.env.JWT_SECRET);
-    if (session.role !== "admin") {
+    if (!["admin", "owner"].includes(session.role)) {
       return res.status(403).json({ message: "ليس لديك صلاحية الوصول." });
     }
+    if (session.role === "owner" && !session.userId) {
+      return res.status(403).json({ message: "جلسة الحساب غير صالحة." });
+    }
+    req.auth = session;
     next();
   } catch {
     return res.status(401).json({ message: "انتهت الجلسة. سجل الدخول مجدداً." });

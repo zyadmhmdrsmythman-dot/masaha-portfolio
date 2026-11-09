@@ -5,6 +5,7 @@ import HomePage from "./pages/HomePage.jsx";
 import ProjectPage from "./pages/ProjectPage.jsx";
 import AdminLogin from "./pages/AdminLogin.jsx";
 import AdminPage from "./pages/AdminPage.jsx";
+import RegisterPage from "./pages/RegisterPage.jsx";
 
 function AdminRoute() {
   const [authenticated, setAuthenticated] = useState(null);
@@ -33,8 +34,11 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/p/:code" element={<HomePage />} />
       <Route path="/project/:slug" element={<ProjectPage />} />
+      <Route path="/p/:code/project/:slug" element={<ProjectPage />} />
       <Route path="/admin/login" element={<AdminLogin />} />
+      <Route path="/admin/register" element={<RegisterPage />} />
       <Route path="/admin" element={<AdminRoute />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

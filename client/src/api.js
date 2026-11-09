@@ -8,7 +8,9 @@ async function request(path, options = {}) {
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(result.message || "تعذر إكمال الطلب. حاول مرة أخرى.");
+    const error = new Error(result.message || "تعذر إكمال الطلب. حاول مرة أخرى.");
+    error.code = result.code;
+    throw error;
   }
   return result;
 }
@@ -16,9 +18,15 @@ async function request(path, options = {}) {
 export const api = {
   health: () => request("/health"),
   projects: () => request("/projects"),
-  project: (slug) => request(`/projects/${encodeURIComponent(slug)}`),
-  contact: (body) =>
-    request("/contact", {
+  project: (slug, profileCode) =>
+    request(
+      profileCode
+        ? `/profiles/${encodeURIComponent(profileCode)}/projects/${encodeURIComponent(slug)}`
+        : `/projects/${encodeURIComponent(slug)}`,
+    ),
+  publicProfile: (code) => request(`/profiles/${encodeURIComponent(code)}`),
+  contact: (body, profileCode) =>
+    request(profileCode ? `/profiles/${encodeURIComponent(profileCode)}/contact` : "/contact", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -26,6 +34,12 @@ export const api = {
   session: () => request("/admin/session", { cache: "no-store" }),
   login: (body) =>
     request("/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  register: (body) =>
+    request("/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

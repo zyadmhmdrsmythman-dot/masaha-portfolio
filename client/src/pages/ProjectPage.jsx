@@ -6,7 +6,7 @@ import SiteHeader from "../components/SiteHeader.jsx";
 import SiteFooter from "../components/SiteFooter.jsx";
 
 export default function ProjectPage() {
-  const { slug } = useParams();
+  const { slug, code } = useParams();
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -14,7 +14,7 @@ export default function ProjectPage() {
   useEffect(() => {
     let active = true;
     setLoading(true);
-    api.project(slug)
+    api.project(slug, code)
       .then((result) => {
         if (active) setProject(result);
       })
@@ -25,14 +25,14 @@ export default function ProjectPage() {
         if (active) setLoading(false);
       });
     return () => { active = false; };
-  }, [slug]);
+  }, [slug, code]);
 
   return (
     <>
       <SiteHeader />
       <main className="detail-page">
         <div className="container">
-          <Link className="back-link" to="/#projects"><ArrowLeft size={16} /> العودة إلى المشاريع</Link>
+          <Link className="back-link" to={code ? `/p/${code}#projects` : "/#projects"}><ArrowLeft size={16} /> العودة إلى المشاريع</Link>
           {loading ? (
             <div className="loading-state detail-loading">جارٍ تحميل تفاصيل المشروع...</div>
           ) : error ? (
@@ -72,7 +72,7 @@ export default function ProjectPage() {
               
               <div className="detail-end">
                 <span>نهاية المشروع، وبداية فكرة جديدة.</span>
-                <Link className="button button-dark" to="/#contact">لديك مشروع مشابه؟ <ArrowLeft size={16} /></Link>
+                <Link className="button button-dark" to={code ? `/p/${code}#contact` : "/#contact"}>لديك مشروع مشابه؟ <ArrowLeft size={16} /></Link>
               </div>
             </>
           ) : null}

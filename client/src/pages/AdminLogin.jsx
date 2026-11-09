@@ -65,6 +65,7 @@ export default function AdminLogin() {
             {loading ? "جارٍ التحقق..." : "تسجيل الدخول"} <ArrowLeft size={16} />
           </button>
         </form>
+        <p className="login-register">ليس لديك حساب؟ <Link to="/admin/register">أنشئ حسابًا جديدًا</Link></p>
         <Link className="login-back" to="/">العودة إلى الموقع</Link>
       </div>
     </main>

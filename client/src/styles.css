@@ -788,6 +788,19 @@ img {
   margin-inline-start: 7px;
   color: #929386;
 }
+.contact-inbox-note {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 390px;
+  margin-top: 29px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.contact-inbox-note .contact-icon {
+  flex: 0 0 39px;
+}
 .contact-social {
   gap: 13px;
   margin-top: 43px;
@@ -1112,6 +1125,15 @@ img {
 .login-back:hover {
   color: var(--olive);
 }
+.login-register {
+  margin: 20px 0 0 !important;
+  color: var(--muted);
+  text-align: center;
+}
+.login-register a {
+  color: var(--olive-dark);
+  font-weight: 600;
+}
 
 .dashboard-page {
   min-height: 100vh;
@@ -1175,6 +1197,15 @@ img {
   margin: 0;
   color: var(--muted);
   font-size: 12px;
+}
+.dashboard-intro .profile-share {
+  margin-top: 10px;
+  overflow-wrap: anywhere;
+}
+.profile-share a {
+  color: var(--olive-dark);
+  direction: ltr;
+  unicode-bidi: plaintext;
 }
 .dashboard-stats {
   display: flex;
@@ -1444,14 +1475,13 @@ img {
   color: #99998f;
   font-size: 9px;
 }
-.inbox-message > a {
+.inbox-message-email {
   display: block;
   width: fit-content;
   margin-top: 3px;
   color: var(--olive);
   font-family: "DM Sans", sans-serif;
   font-size: 10px;
-  direction: ltr;
 }
 .inbox-message > p {
   margin: 8px 0 0;

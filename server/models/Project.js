@@ -10,6 +10,7 @@ const projectSchema = new mongoose.Schema(
     coverImage: { type: String, required: true },
     gallery: { type: [String], default: [] },
     links: { type: [String], default: [] },
+    ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
   },
   { timestamps: true },
 );

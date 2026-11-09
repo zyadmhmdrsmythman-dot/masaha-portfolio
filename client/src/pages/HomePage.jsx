@@ -11,13 +11,15 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { api } from "../api.js";
 import SiteHeader from "../components/SiteHeader.jsx";
 import SiteFooter from "../components/SiteFooter.jsx";
 
 export default function HomePage() {
+  const { code: profileCode } = useParams();
   const [projects, setProjects] = useState([]);
+  const [profile, setProfile] = useState(null);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [projectsError, setProjectsError] = useState("");
   const [contact, setContact] = useState({ name: "", email: "", message: "" });
@@ -27,7 +29,14 @@ export default function HomePage() {
     setProjectsLoading(true);
     setProjectsError("");
     try {
-      setProjects(await api.projects());
+      if (profileCode) {
+        const result = await api.publicProfile(profileCode);
+        setProfile(result.profile);
+        setProjects(result.projects);
+      } else {
+        setProfile(null);
+        setProjects(await api.projects());
+      }
     } catch (error) {
       setProjectsError(error.message);
     } finally {
@@ -37,13 +46,13 @@ export default function HomePage() {
 
   useEffect(() => {
     loadProjects();
-  }, []);
+  }, [profileCode]);
 
   async function submitContact(event) {
     event.preventDefault();
     setContactState({ loading: true, note: "", error: false });
     try {
-      const result = await api.contact(contact);
+      const result = await api.contact(contact, profileCode);
       setContact({ name: "", email: "", message: "" });
       setContactState({ loading: false, note: result.message, error: false });
     } catch (error) {
@@ -60,7 +69,7 @@ export default function HomePage() {
             <div className="hero-copy">
               <div className="eyebrow">
                 <span className="eyebrow-dot" />
-                مصمم مستقل · متاح لمشاريع جديدة
+                {profile ? `أعمال ${profile.name}` : "مصمم مستقل · متاح لمشاريع جديدة"}
               </div>
               <h1>
                 أصنع تجارب
@@ -172,7 +181,9 @@ export default function HomePage() {
                 {projects.map((project, index) => (
                   <Link
                     className={`project-card project-card-${(index % 2) + 1}`}
-                    to={`/project/${encodeURIComponent(project.slug)}`}
+                    to={profileCode
+                      ? `/p/${encodeURIComponent(profileCode)}/project/${encodeURIComponent(project.slug)}`
+                      : `/project/${encodeURIComponent(project.slug)}`}
                     key={project._id}
                   >
                     <div className="project-image-wrap">
@@ -193,8 +204,8 @@ export default function HomePage() {
               <div className="empty-state">
                 <span className="empty-icon"><ImagePlus size={22} /></span>
                 <h3>المساحة جاهزة لأعمالك</h3>
-                <p>ستظهر المشاريع هنا بمجرد إضافتها من لوحة الإدارة.</p>
-                <Link className="text-link" to="/admin/login">دخول المدير <ArrowLeft size={15} /></Link>
+                <p>ستظهر المشاريع هنا بمجرد إضافتها من لوحة الحساب.</p>
+                <Link className="text-link" to="/admin/login">دخول أصحاب الأعمال <ArrowLeft size={15} /></Link>
               </div>
             )}
           </div>
@@ -232,11 +243,10 @@ export default function HomePage() {
               <span className="section-kicker">رسالتك هي البداية <span>✳</span></span>
               <h2>عندك فكرة؟<br /><em>أنا أسمعك.</em></h2>
               <p>اكتب لي عن مشروعك، أو حتى عن فكرة تدور في بالك. يسعدني أن نبدأ الحديث.</p>
-              <a className="contact-email" href="mailto:zieadmohamed18@gmail.com">
+              <p className="contact-inbox-note">
                 <span className="contact-icon"><Mail size={19} /></span>
-                zieadmohamed18@gmail.com
-                <ArrowUpLeft size={16} />
-              </a>
+                <span>ستصل رسالتك مباشرة إلى بريدي الإلكتروني</span>
+              </p>
               <div className="contact-social">
                 <span>تجدني أيضًا</span>
                 <a href="https://www.instagram.com/maxcode73/" target="_blank" rel="noreferrer" aria-label="إنستغرام"><Instagram size={18} /></a>
@@ -303,4 +313,3 @@ export default function HomePage() {
     </>
   );
 }
-

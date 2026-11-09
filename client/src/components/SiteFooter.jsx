@@ -1,17 +1,20 @@
 import { ArrowDown, LockKeyhole, Mail } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 export default function SiteFooter() {
+  const { code } = useParams();
+  const homePath = code ? `/p/${code}` : "/";
+
   return (
     <footer className="site-footer">
       <div className="container footer-inner">
-        <Link to="/" className="brand footer-brand">
+        <Link to={homePath} className="brand footer-brand">
           <span className="brand-mark">م.</span>
           <span>مساحة</span>
         </Link>
         <p>أفكار جميلة، تتحول إلى تجارب لا تُنسى.</p>
         <div className="footer-links">
-          <a href="mailto:zieadmohamed18@gmail.com" aria-label="البريد الإلكتروني">
+          <a href={`${homePath}#contact`} aria-label="نموذج التواصل بالموقع">
             <Mail size={18} />
           </a>
           <a href="#top" aria-label="العودة إلى الأعلى">
@@ -29,4 +32,3 @@ export default function SiteFooter() {
     </footer>
   );
 }
-
