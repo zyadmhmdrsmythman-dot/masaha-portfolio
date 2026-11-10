@@ -32,6 +32,7 @@ const imagekitConfigured = Boolean(
     process.env.IMAGEKIT_PRIVATE_KEY &&
     process.env.IMAGEKIT_URL_ENDPOINT,
 );
+const emailJsEndpoint = "https://api.emailjs.com/api/v1.0/email/send";
 
 let imagekit;
 if (imagekitConfigured) {
@@ -40,6 +41,49 @@ if (imagekitConfigured) {
     privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
     urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
   });
+}
+
+async function sendContactEmail({ name, email, message }) {
+  const { EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_PUBLIC_KEY } = process.env;
+  if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_PUBLIC_KEY) {
+    const error = new Error("خدمة البريد غير مهيأة. يرجى المحاولة لاحقًا.");
+    error.status = 503;
+    throw error;
+  }
+
+  let response;
+  try {
+    response = await fetch(emailJsEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        service_id: EMAILJS_SERVICE_ID,
+        template_id: EMAILJS_TEMPLATE_ID,
+        user_id: EMAILJS_PUBLIC_KEY,
+        ...(process.env.EMAILJS_PRIVATE_KEY
+          ? { accessToken: process.env.EMAILJS_PRIVATE_KEY }
+          : {}),
+        template_params: {
+          name,
+          email,
+          reply_to: email,
+          message,
+        },
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+  } catch (cause) {
+    const error = new Error("تعذر الاتصال بخدمة البريد. حاول لاحقًا.", { cause });
+    error.status = 502;
+    throw error;
+  }
+
+  if (!response.ok) {
+    console.error(`EmailJS request failed with status ${response.status}.`);
+    const error = new Error("تعذر إرسال الرسالة عبر البريد. حاول لاحقًا.");
+    error.status = 502;
+    throw error;
+  }
 }
 
 const upload = multer({
@@ -418,11 +462,13 @@ app.post("/api/contact", async (req, res, next) => {
     ) {
       return res.status(400).json({ message: "تحقق من بيانات التواصل المدخلة." });
     }
-    const newMessage = await Message.create({
+    const contactMessage = {
       name: name.trim(),
       email: email.trim().toLowerCase(),
       message: message.trim(),
-    });
+    };
+    await sendContactEmail(contactMessage);
+    const newMessage = await Message.create(contactMessage);
     res.status(201).json({ message: "وصلتنا رسالتك، شكرًا لتواصلك!", id: newMessage._id });
   } catch (error) {
     next(error);
@@ -450,12 +496,14 @@ app.post("/api/profiles/:code/contact", async (req, res, next) => {
     if (!user) {
       return res.status(404).json({ message: "لم يتم العثور على صفحة الأعمال." });
     }
-    const newMessage = await Message.create({
+    const contactMessage = {
       ownerId: user._id,
       name: name.trim(),
       email: email.trim().toLowerCase(),
       message: message.trim(),
-    });
+    };
+    await sendContactEmail(contactMessage);
+    const newMessage = await Message.create(contactMessage);
     res.status(201).json({ message: "وصلتنا رسالتك، شكرًا لتواصلك!", id: newMessage._id });
   } catch (error) {
     next(error);
