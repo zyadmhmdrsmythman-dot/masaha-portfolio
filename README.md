@@ -70,8 +70,10 @@
    | `IMAGEKIT_PUBLIC_KEY` | Public Key |
    | `IMAGEKIT_PRIVATE_KEY` | Private Key |
    | `IMAGEKIT_URL_ENDPOINT` | URL Endpoint |
+   | `EMAILJS_TO_EMAIL` | (اختياري) بريد استلام رسائل الصفحة الرئيسية |
+   | `EMAILJS_PRIVATE_KEY` | (اختياري) Private Key لحماية طلبات EmailJS من الخادم |
 
-   في EmailJS أنشئ Email Service وقالبًا، واجعل عنوان المستلم مضبوطًا في القالب. يستخدم نموذج التواصل في `client/src/pages/HomePage.jsx` معرّف الخدمة والقالب والمفتاح العام. تأكد أن أسماء حقول القالب هي `name` و`email` و`message`، واضبط **Reply To** على `{{email}}` للرد على المرسل. المفتاح العام مخصص للاستخدام في المتصفح؛ لا تضع **Private Key** في كود الواجهة.
+   في EmailJS، تأكد أن خدمة Gmail والقالب يعملان. اجعل **To Email** في القالب `{{to_email}}`، وأضف متغيرات `{{name}}` و`{{email}}` و`{{message}}` لمحتوى الرسالة، واضبط **Reply To** على `{{reply_to}}`. رسائل رابط صاحب الأعمال تُرسل إلى البريد المسجل في حسابه؛ لا يُكشف هذا البريد للزوار. رسائل الصفحة الرئيسية تُرسل إلى `EMAILJS_TO_EMAIL` أو `ADMIN_EMAIL`.
 5. ابدأ النشر الإنتاجي من جذر المشروع عبر `npx vercel --prod`. إعداد [vercel.json](./vercel.json) يبني واجهة React ويشغّل API كـ Vercel Function. بعد إضافة أو تغيير متغيرات البيئة، أعد النشر.
 
 ### نقل البيانات من MongoDB المحلي
