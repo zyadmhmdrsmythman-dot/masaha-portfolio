@@ -82,8 +82,15 @@ async function sendContactEmail({ name, email, message, toEmail }) {
   }
 
   if (!response.ok) {
-    console.error(`EmailJS request failed with status ${response.status}.`);
-    const error = new Error("تعذر إرسال الرسالة عبر البريد. حاول لاحقًا.");
+    const responseText = (await response.text()).replace(/[\u0000-\u001f\u007f]/g, " ").trim();
+    const details = responseText.slice(0, 300);
+    console.error(`EmailJS request failed with status ${response.status}: ${details}`);
+    const message = /invalid grant/i.test(details)
+      ? "اتصال Gmail بخدمة EmailJS منتهي. أعد ربط Gmail من EmailJS ثم حاول مجددًا."
+      : details
+        ? `رفضت خدمة البريد الإرسال: ${details}`
+        : "تعذر إرسال الرسالة عبر البريد. تحقق من إعدادات EmailJS.";
+    const error = new Error(message);
     error.status = 502;
     throw error;
   }
