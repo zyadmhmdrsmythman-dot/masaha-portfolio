@@ -17,7 +17,7 @@
    npm install --prefix server
    ```
 
-2. انسخ `server/.env.example` إلى `server/.env`، واضبط `MONGODB_URI` و`JWT_SECRET`. لإرسال رسائل نموذج التواصل بالبريد، أضف إعدادات EmailJS الموضحة أدناه.
+2. انسخ `server/.env.example` إلى `server/.env`، واضبط `MONGODB_URI` و`JWT_SECRET`.
 
    الخطوات التالية اختيارية فقط إذا أردت الإبقاء على حساب المدير القديم للبيانات الموجودة في الصفحة الرئيسية؛ أدخل بريده في `ADMIN_EMAIL` داخل `server/.env` أولًا:
 
@@ -42,7 +42,7 @@
 
    هذا الإعداد اختياري للحفاظ على دخول المدير القديم إلى بيانات الصفحة الرئيسية. أدخل كلمة المرور التي تريدها عند ظهور المطالبة. ستُحفظ تجزئتها فقط في `ADMIN_PASSWORD_HASH`.
 
-   يمكن لأصحاب الأعمال إنشاء حساباتهم من `/admin/register` وتسجيل الدخول فورًا دون إرسال بريد. يُستخدم البريد كاسم دخول فقط. تُعرض أعمال كل حساب على رابط عام عشوائي، وتصل رسائل التواصل عبر إعداد EmailJS وتُحفظ في صندوق الموقع.
+   يمكن لأصحاب الأعمال إنشاء حساباتهم من `/admin/register` وتسجيل الدخول فورًا دون إرسال بريد. يُستخدم البريد كاسم دخول فقط. تُعرض أعمال كل حساب على رابط عام عشوائي، ويُرسل نموذج التواصل عبر EmailJS ويحفظ نسخة في صندوق الموقع.
 
 3. من مجلد المشروع شغّل:
 
@@ -70,12 +70,8 @@
    | `IMAGEKIT_PUBLIC_KEY` | Public Key |
    | `IMAGEKIT_PRIVATE_KEY` | Private Key |
    | `IMAGEKIT_URL_ENDPOINT` | URL Endpoint |
-   | `EMAILJS_SERVICE_ID` | Service ID من EmailJS |
-   | `EMAILJS_TEMPLATE_ID` | Template ID من EmailJS |
-   | `EMAILJS_PUBLIC_KEY` | Public Key من إعدادات الحساب في EmailJS |
-   | `EMAILJS_PRIVATE_KEY` | (موصى به) Private Key من إعدادات الحساب في EmailJS |
 
-   في EmailJS أنشئ Email Service وقالبًا، واجعل عنوان المستلم مضبوطًا في القالب. استخدم متغيرات القالب `{{name}}` و`{{email}}` و`{{message}}` لمحتوى الرسالة، واضبط **Reply To** على `{{reply_to}}` حتى تتمكن من الرد على المرسل. استخدم **Production** و**Preview** إذا رغبت في أن تعمل بيئات المعاينة أيضًا. لا تضف مفاتيح EmailJS إلى `VITE_*` ولا تضعها في ملفات الواجهة.
+   في EmailJS أنشئ Email Service وقالبًا، واجعل عنوان المستلم مضبوطًا في القالب. يستخدم نموذج التواصل في `client/src/pages/HomePage.jsx` معرّف الخدمة والقالب والمفتاح العام. تأكد أن أسماء حقول القالب هي `name` و`email` و`message`، واضبط **Reply To** على `{{email}}` للرد على المرسل. المفتاح العام مخصص للاستخدام في المتصفح؛ لا تضع **Private Key** في كود الواجهة.
 5. ابدأ النشر الإنتاجي من جذر المشروع عبر `npx vercel --prod`. إعداد [vercel.json](./vercel.json) يبني واجهة React ويشغّل API كـ Vercel Function. بعد إضافة أو تغيير متغيرات البيئة، أعد النشر.
 
 ### نقل البيانات من MongoDB المحلي

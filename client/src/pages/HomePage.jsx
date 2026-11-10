@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import emailjs from "@emailjs/browser";
 import {
   ArrowDown,
   ArrowLeft,
@@ -24,6 +25,7 @@ export default function HomePage() {
   const [projectsError, setProjectsError] = useState("");
   const [contact, setContact] = useState({ name: "", email: "", message: "" });
   const [contactState, setContactState] = useState({ loading: false, note: "", error: false });
+  const contactForm = useRef(null);
 
   async function loadProjects() {
     setProjectsLoading(true);
@@ -52,11 +54,30 @@ export default function HomePage() {
     event.preventDefault();
     setContactState({ loading: true, note: "", error: false });
     try {
-      const result = await api.contact(contact, profileCode);
+      await emailjs.sendForm(
+        "service_0fz5ksj",
+        "template_u38sv6o",
+        contactForm.current,
+        "jwFbkOkiovIsCx8O1",
+      );
       setContact({ name: "", email: "", message: "" });
-      setContactState({ loading: false, note: result.message, error: false });
+      try {
+        await api.contact(contact, profileCode);
+        setContactState({ loading: false, note: "وصلتنا رسالتك، شكرًا لتواصلك!", error: false });
+      } catch (error) {
+        console.error("Email was sent, but the contact message could not be saved:", error);
+        setContactState({
+          loading: false,
+          note: "تم إرسال رسالتك بالبريد، لكن تعذر حفظ نسخة في صندوق الرسائل.",
+          error: true,
+        });
+      }
     } catch (error) {
-      setContactState({ loading: false, note: error.message, error: true });
+      setContactState({
+        loading: false,
+        note: error.text || "تعذر إرسال الرسالة. حاول مرة أخرى.",
+        error: true,
+      });
     }
   }
 
@@ -252,7 +273,7 @@ export default function HomePage() {
                 <a href="https://www.instagram.com/maxcode73/" target="_blank" rel="noreferrer" aria-label="إنستغرام"><Instagram size={18} /></a>
               </div>
             </div>
-            <form className="contact-form" onSubmit={submitContact}>
+            <form className="contact-form" onSubmit={submitContact} ref={contactForm}>
               <div className="form-heading">
                 <span>✳</span>
                 <p>كل بداية جميلة تبدأ برسالة.</p>
